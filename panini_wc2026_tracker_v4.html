@@ -1,0 +1,778 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.app { padding: 1rem 0; font-family: var(--font-sans); }
+.header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.2rem; }
+.header-text h1 { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.header-text p { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 1rem; }
+.stat-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; }
+.stat-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 3px; }
+.stat-value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.stat-value.green { color: #3B6D11; }
+.progress-bar-wrap { height: 7px; background: var(--color-background-secondary); border-radius: 4px; margin-bottom: 1.2rem; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: #1a6b3a; border-radius: 4px; transition: width 0.4s; }
+.main-nav { display: flex; gap: 0; margin-bottom: 1.2rem; border-bottom: 0.5px solid var(--color-border-tertiary); overflow-x: auto; }
+.main-nav button { padding: 8px 14px; font-size: 13px; background: transparent; border: none; white-space: nowrap; color: var(--color-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px; }
+.main-nav button.active { color: #1a6b3a; border-bottom-color: #1a6b3a; font-weight: 500; }
+.album-layout { display: grid; grid-template-columns: 185px 1fr; gap: 14px; min-height: 400px; }
+.album-toc { border-right: 0.5px solid var(--color-border-tertiary); padding-right: 10px; }
+.toc-item { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border-radius: var(--border-radius-md); cursor: pointer; font-size: 12px; color: var(--color-text-secondary); transition: all 0.13s; margin-bottom: 2px; }
+.toc-item:hover { background: var(--color-background-secondary); }
+.toc-item.active { background: #EAF3DE; color: #27500A; font-weight: 500; }
+.toc-mini-bar { flex: 1; height: 4px; background: var(--color-background-secondary); border-radius: 2px; overflow: hidden; }
+.toc-mini-fill { height: 100%; background: #1a6b3a; border-radius: 2px; }
+.toc-pct { font-size: 10px; min-width: 26px; text-align: right; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.page-header h2 { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+.page-nav { display: flex; gap: 4px; align-items: center; }
+.page-nav button { padding: 4px 10px; font-size: 12px; border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); cursor: pointer; border-radius: var(--border-radius-md); }
+.page-nav button:disabled { opacity: 0.35; cursor: default; }
+.album-spread { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
+.album-page { padding: 10px; background: var(--color-background-primary); }
+.album-page:first-child { border-right: 1px solid var(--color-border-tertiary); }
+.page-num-label { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 7px; text-align: center; }
+.sticker-grid-page { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.sticker { height: 46px; border-radius: 5px; border: 1.5px solid var(--color-border-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; font-weight: 500; color: var(--color-text-secondary); transition: all 0.12s; position: relative; background: var(--color-background-secondary); user-select: none; }
+.sticker:hover { border-color: #1a6b3a; transform: scale(1.04); }
+.sticker.owned { background: #EAF3DE; border-color: #3B6D11; color: #27500A; }
+.sticker.double { background: #FAEEDA; border-color: #854F0B; color: #633806; }
+.sticker.owned::after { content: '✓'; position: absolute; top: 1px; right: 3px; font-size: 8px; color: #3B6D11; }
+.sticker.double::after { content: '2x'; position: absolute; top: 1px; right: 2px; font-size: 7px; color: #854F0B; }
+.sticker-num { font-size: 11px; font-weight: 500; }
+.tag-section { font-size: 9px; color: inherit; opacity: 0.7; text-align: center; width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-zone-multi { border: 1.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 1.2rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+.drop-zone-multi:hover, .drop-zone-multi.dragover { border-color: #1a6b3a; background: #EAF3DE; }
+.drop-zone-multi i { font-size: 28px; color: var(--color-text-secondary); display: block; margin-bottom: 5px; }
+.drop-zone-multi p { font-size: 13px; color: var(--color-text-secondary); }
+.drop-zone-multi small { font-size: 11px; color: var(--color-text-secondary); opacity: 0.7; }
+#file-input-multi, #file-input-restore { display: none; }
+.queue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 7px; margin-top: 10px; }
+.queue-item { border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); overflow: hidden; position: relative; background: var(--color-background-secondary); }
+.queue-img { width: 100%; height: 72px; object-fit: cover; display: block; }
+.queue-label { font-size: 10px; padding: 3px 5px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-status { position: absolute; top: 3px; right: 3px; font-size: 10px; padding: 2px 5px; border-radius: 10px; font-weight: 500; }
+.status-pending { background: #D3D1C7; color: #444441; }
+.status-analyzing { background: #B5D4F4; color: #0C447C; }
+.status-done { background: #C0DD97; color: #3B6D11; }
+.status-error { background: #F7C1C1; color: #A32D2D; }
+.remove-btn { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,0.4); color: #fff; border: none; cursor: pointer; font-size: 9px; display: flex; align-items: center; justify-content: center; }
+.btn-primary { background: #1a6b3a; color: #fff; border: none; padding: 8px 16px; border-radius: var(--border-radius-md); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn-primary:hover { background: #0f5a2d; }
+.btn-primary:disabled { opacity: 0.5; cursor: default; }
+.btn-secondary { background: transparent; color: var(--color-text-secondary); border: 0.5px solid var(--color-border-secondary); padding: 7px 13px; border-radius: var(--border-radius-md); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn-secondary:hover { background: var(--color-background-secondary); }
+.btn-pdf { background: #c8310a; color: #fff; border: none; padding: 8px 16px; border-radius: var(--border-radius-md); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn-pdf:hover { background: #a8280a; }
+.btn-pdf:disabled { opacity: 0.5; cursor: default; }
+.btn-danger { background: transparent; color: #A32D2D; border: 0.5px solid #F09595; padding: 7px 13px; border-radius: var(--border-radius-md); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn-danger:hover { background: #FCEBEB; }
+.actions-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.result-section { border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 12px; margin-bottom: 8px; background: var(--color-background-primary); }
+.result-section h3 { font-size: 13px; font-weight: 500; margin-bottom: 7px; color: var(--color-text-primary); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 3px 8px; border-radius: 20px; font-size: 11px; }
+.chip-new { background: #EAF3DE; color: #27500A; border: 0.5px solid #3B6D11; }
+.chip-double { background: #FAEEDA; color: #633806; border: 0.5px solid #854F0B; }
+.chip-already { background: var(--color-background-secondary); color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+.loading-bar { height: 3px; background: var(--color-background-secondary); border-radius: 2px; margin: 5px 0; overflow: hidden; }
+.loading-bar-fill { height: 100%; width: 30%; background: #1a6b3a; border-radius: 2px; animation: slide 1s infinite; }
+@keyframes slide { 0% { margin-left:-30%; } 100% { margin-left:100%; } }
+.legend { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.spinner { display: inline-block; width: 11px; height: 11px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.save-section { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 16px; margin-bottom: 12px; background: var(--color-background-primary); }
+.save-section h3 { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+.save-section p { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; line-height: 1.5; }
+.save-meta { font-size: 11px; color: var(--color-text-secondary); margin-top: 8px; }
+.pdf-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.pdf-option { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-primary); cursor: pointer; }
+.pdf-option input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a6b3a; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a6b3a; color: #fff; padding: 8px 18px; border-radius: var(--border-radius-md); font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; }
+.confirm-overlay.show { display: flex; }
+.confirm-box { background: var(--color-background-primary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 20px; max-width: 320px; width: 90%; }
+.confirm-box h3 { font-size: 15px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 8px; }
+.confirm-box p { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 16px; line-height: 1.5; }
+.confirm-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.autosave-indicator { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+.autosave-dot { width: 7px; height: 7px; border-radius: 50%; background: #3B6D11; }
+</style>
+
+<div class="app">
+  <h2 class="sr-only">Suivi album Panini Coupe du Monde 2026</h2>
+  <div class="header">
+    <span style="font-size:26px">🏆</span>
+    <div class="header-text">
+      <h1>Panini · Coupe du Monde 2026</h1>
+      <p>Canada · États-Unis · Mexique</p>
+    </div>
+    <div class="autosave-indicator" id="autosave-indicator" style="margin-left:auto">
+      <div class="autosave-dot"></div><span>Sauvegardé</span>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Collées</div><div class="stat-value green" id="stat-owned">0</div></div>
+    <div class="stat-card"><div class="stat-label">Manquantes</div><div class="stat-value" id="stat-missing">670</div></div>
+    <div class="stat-card"><div class="stat-label">Doubles</div><div class="stat-value" id="stat-doubles">0</div></div>
+    <div class="stat-card"><div class="stat-label">Progression</div><div class="stat-value" id="stat-pct">0%</div></div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="main-nav">
+    <button class="active" onclick="switchView('album')" id="nav-album"><i class="ti ti-book" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Album</button>
+    <button onclick="switchView('scanner')" id="nav-scanner"><i class="ti ti-scan" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Scanner</button>
+    <button onclick="switchView('doubles')" id="nav-doubles"><i class="ti ti-copy" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Doubles</button>
+    <button onclick="switchView('sauvegarde')" id="nav-sauvegarde"><i class="ti ti-device-floppy" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Sauvegarde</button>
+  </div>
+
+  <!-- VUE ALBUM -->
+  <div id="view-album">
+    <div class="album-layout">
+      <div class="album-toc" id="toc"></div>
+      <div class="album-pages">
+        <div class="page-header">
+          <h2 id="spread-title">Intro</h2>
+          <div class="page-nav">
+            <button id="btn-prev" onclick="prevSpread()" disabled><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+            <span id="spread-indicator" style="font-size:11px;color:var(--color-text-secondary);padding:4px 6px"></span>
+            <button id="btn-next" onclick="nextSpread()"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#EAF3DE;border:1px solid #3B6D11"></div>Collée</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FAEEDA;border:1px solid #854F0B"></div>Double</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-secondary);border:1px solid var(--color-border-secondary)"></div>Manquante</div>
+        </div>
+        <div class="album-spread" id="spread-area"></div>
+        <p style="font-size:10px;color:var(--color-text-secondary);margin-top:6px;text-align:center">Clic = collée · 2e clic = double · 3e clic = manquante</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- VUE SCANNER -->
+  <div id="view-scanner" style="display:none">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Importez plusieurs photos de pages différentes. L'IA détecte les numéros et identifie les doublons entre pages.</p>
+    <div class="drop-zone-multi" id="drop-zone" onclick="document.getElementById('file-input-multi').click()">
+      <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+      <p>Glissez vos photos ici ou cliquez pour importer</p>
+      <small>Plusieurs fichiers · PNG, JPG, HEIC</small>
+    </div>
+    <input type="file" id="file-input-multi" accept="image/*" multiple onchange="addToQueue(event)">
+    <div class="queue-grid" id="queue-grid"></div>
+    <div class="actions-row" id="scan-actions" style="display:none">
+      <button class="btn-primary" id="btn-analyze" onclick="analyzeAll()"><i class="ti ti-brain" aria-hidden="true"></i> Analyser toutes les images</button>
+      <button class="btn-secondary" onclick="clearQueue()"><i class="ti ti-trash" aria-hidden="true"></i> Vider</button>
+    </div>
+    <div id="scan-results-panel"></div>
+  </div>
+
+  <!-- VUE DOUBLES -->
+  <div id="view-doubles" style="display:none">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Vos vignettes en double, prêtes à l'échange.</p>
+    <div id="doubles-list"></div>
+  </div>
+
+  <!-- VUE SAUVEGARDE -->
+  <div id="view-sauvegarde" style="display:none">
+
+    <div class="save-section">
+      <h3><i class="ti ti-file-type-pdf" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;color:#c8310a"></i>Exporter en PDF structuré</h3>
+      <p>Générez un PDF mis en page par équipes avec les listes de vignettes manquantes et/ou doubles, prêt à imprimer ou partager.</p>
+      <div class="pdf-options">
+        <label class="pdf-option"><input type="checkbox" id="pdf-missing" checked> Inclure les vignettes <strong>manquantes</strong></label>
+        <label class="pdf-option"><input type="checkbox" id="pdf-doubles" checked> Inclure les vignettes <strong>doubles</strong></label>
+        <label class="pdf-option"><input type="checkbox" id="pdf-progress"> Inclure la <strong>progression par section</strong></label>
+      </div>
+      <button class="btn-pdf" id="btn-gen-pdf" onclick="generatePDF()"><i class="ti ti-file-download" aria-hidden="true"></i> Générer le PDF</button>
+      <div id="pdf-status" style="margin-top:8px;font-size:12px;color:var(--color-text-secondary)"></div>
+    </div>
+
+    <div class="save-section">
+      <h3><i class="ti ti-download" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;color:#1a6b3a"></i>Exporter la collection (JSON)</h3>
+      <p>Sauvegardez ou transférez votre collection vers un autre appareil.</p>
+      <button class="btn-primary" onclick="exportCollection()"><i class="ti ti-file-download" aria-hidden="true"></i> Télécharger .json</button>
+      <div class="save-meta" id="export-meta"></div>
+    </div>
+
+    <div class="save-section">
+      <h3><i class="ti ti-upload" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;color:#185FA5"></i>Importer une sauvegarde</h3>
+      <p>Restaurez une collection depuis un fichier JSON. Fusionnez ou remplacez.</p>
+      <button class="btn-secondary" onclick="document.getElementById('file-input-restore').click()"><i class="ti ti-file-upload" aria-hidden="true"></i> Choisir un fichier .json</button>
+      <input type="file" id="file-input-restore" accept=".json,application/json" onchange="importCollection(event)">
+      <div id="import-preview" style="margin-top:10px"></div>
+    </div>
+
+    <div class="save-section">
+      <h3><i class="ti ti-share" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;color:#533AB7"></i>Copier les listes</h3>
+      <p>Copiez dans le presse-papier pour envoyer rapidement par message.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-secondary" onclick="shareMissing()"><i class="ti ti-clipboard-text" aria-hidden="true"></i> Manquantes</button>
+        <button class="btn-secondary" onclick="shareDoubles()"><i class="ti ti-clipboard-text" aria-hidden="true"></i> Doubles</button>
+      </div>
+    </div>
+
+    <div class="save-section" style="border-color:#F09595">
+      <h3 style="color:#A32D2D"><i class="ti ti-trash" aria-hidden="true" style="margin-right:6px;vertical-align:-2px"></i>Réinitialiser</h3>
+      <p>Supprimer toutes les données. Irréversible.</p>
+      <button class="btn-danger" onclick="showConfirm()"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Réinitialiser la collection</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3>Réinitialiser la collection ?</h3>
+    <p>Toutes vos vignettes collées et doubles seront supprimées. Pensez à exporter d'abord.</p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="hideConfirm()">Annuler</button>
+      <button class="btn-danger" onclick="resetCollection()"><i class="ti ti-trash" aria-hidden="true"></i> Confirmer</button>
+    </div>
+  </div>
+</div>
+<div class="confirm-overlay" id="merge-overlay">
+  <div class="confirm-box">
+    <h3 id="merge-title">Importer la sauvegarde</h3>
+    <p id="merge-desc"></p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="hideMerge()">Annuler</button>
+      <button class="btn-secondary" onclick="applyImport('merge')"><i class="ti ti-git-merge" aria-hidden="true"></i> Fusionner</button>
+      <button class="btn-danger" onclick="applyImport('replace')"><i class="ti ti-replace" aria-hidden="true"></i> Remplacer</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const SECTIONS = [
+  { id:'intro', label:'Introduction & Généralités', emoji:'📋', range:[1,18] },
+  { id:'usa', label:'USA', emoji:'🇺🇸', range:[19,50] },
+  { id:'canada', label:'Canada', emoji:'🇨🇦', range:[51,82] },
+  { id:'mexique', label:'Mexique', emoji:'🇲🇽', range:[83,114] },
+  { id:'grA', label:'Groupe A', emoji:'⚽', range:[115,162] },
+  { id:'grB', label:'Groupe B', emoji:'⚽', range:[163,210] },
+  { id:'grC', label:'Groupe C', emoji:'⚽', range:[211,258] },
+  { id:'grD', label:'Groupe D', emoji:'⚽', range:[259,306] },
+  { id:'grE', label:'Groupe E', emoji:'⚽', range:[307,354] },
+  { id:'grF', label:'Groupe F', emoji:'⚽', range:[355,402] },
+  { id:'grG', label:'Groupe G', emoji:'⚽', range:[403,450] },
+  { id:'grH', label:'Groupe H', emoji:'⚽', range:[451,498] },
+  { id:'grI', label:'Groupe I', emoji:'⚽', range:[499,546] },
+  { id:'grJ', label:'Groupe J', emoji:'⚽', range:[547,594] },
+  { id:'grK', label:'Groupe K', emoji:'⚽', range:[595,642] },
+  { id:'grL', label:'Groupe L', emoji:'⚽', range:[643,670] },
+];
+const TOTAL = 670;
+let state = {};
+let currentSpreadIdx = 0;
+let currentView = 'album';
+let queue = [];
+let analyzing = false;
+let pendingImport = null;
+
+function buildSpreads() {
+  const spreads = [];
+  SECTIONS.forEach(sec => {
+    const nums = [];
+    for (let i = sec.range[0]; i <= sec.range[1]; i++) nums.push(i);
+    for (let i = 0; i < nums.length; i += 18) {
+      const chunk = nums.slice(i, i + 18);
+      spreads.push({ sectionId: sec.id, sectionLabel: sec.label, sectionEmoji: sec.emoji, left: chunk.slice(0,9), right: chunk.slice(9,18) });
+    }
+  });
+  return spreads;
+}
+const SPREADS = buildSpreads();
+
+async function loadState() {
+  try { const r = await window.storage.get('panini-wc2026-state'); if (r && r.value) state = JSON.parse(r.value); } catch(e) { state = {}; }
+}
+async function saveState() {
+  try { await window.storage.set('panini-wc2026-state', JSON.stringify(state)); showAutosave(); } catch(e) {}
+}
+function showAutosave() {
+  const el = document.getElementById('autosave-indicator');
+  el.innerHTML = '<div class="autosave-dot"></div><span>Sauvegardé</span>';
+  el.style.color = '#3B6D11';
+  setTimeout(() => { el.style.color = ''; el.innerHTML = '<div class="autosave-dot" style="background:var(--color-border-secondary)"></div><span>Auto-sauvegardé</span>'; }, 2000);
+}
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || '#1a6b3a';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+function getOwned() { return Object.values(state).filter(v => v >= 1).length; }
+function getDoubles() { return Object.values(state).filter(v => v >= 2).length; }
+function updateStats() {
+  const owned = getOwned(), doubles = getDoubles(), pct = Math.round(owned / TOTAL * 100);
+  document.getElementById('stat-owned').textContent = owned;
+  document.getElementById('stat-missing').textContent = TOTAL - owned;
+  document.getElementById('stat-doubles').textContent = doubles;
+  document.getElementById('stat-pct').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+  updateExportMeta();
+}
+function updateExportMeta() {
+  const el = document.getElementById('export-meta');
+  if (!el) return;
+  el.textContent = `${getOwned()} collée(s), ${getDoubles()} double(s), ${Math.round(getOwned()/TOTAL*100)}% de l'album.`;
+}
+function buildToc() {
+  const toc = document.getElementById('toc');
+  toc.innerHTML = '';
+  SECTIONS.forEach(sec => {
+    const total = sec.range[1] - sec.range[0] + 1;
+    const owned = Array.from({length: total}, (_, i) => sec.range[0] + i).filter(n => state[n] >= 1).length;
+    const pct = Math.round(owned / total * 100);
+    const firstSpread = SPREADS.findIndex(s => s.sectionId === sec.id);
+    const isActive = SPREADS[currentSpreadIdx] && SPREADS[currentSpreadIdx].sectionId === sec.id;
+    const lbl = sec.label.replace('Introduction & Généralités','Intro').replace('Groupe ','Gr.');
+    const div = document.createElement('div');
+    div.className = 'toc-item' + (isActive ? ' active' : '');
+    div.innerHTML = `<span style="font-size:12px">${sec.emoji}</span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lbl}</span><div class="toc-mini-bar"><div class="toc-mini-fill" style="width:${pct}%"></div></div><span class="toc-pct">${pct}%</span>`;
+    div.onclick = () => { currentSpreadIdx = firstSpread >= 0 ? firstSpread : 0; renderSpread(); buildToc(); };
+    toc.appendChild(div);
+  });
+}
+function cycleSticker(num) {
+  state[num] = ((state[num] || 0) + 1) % 3;
+  saveState(); updateStats(); buildToc(); renderSpread();
+  if (currentView === 'doubles') renderDoubles();
+}
+function renderSpread() {
+  const spread = SPREADS[currentSpreadIdx];
+  if (!spread) return;
+  document.getElementById('spread-title').textContent = spread.sectionLabel;
+  document.getElementById('spread-indicator').textContent = `${currentSpreadIdx + 1} / ${SPREADS.length}`;
+  document.getElementById('btn-prev').disabled = currentSpreadIdx === 0;
+  document.getElementById('btn-next').disabled = currentSpreadIdx === SPREADS.length - 1;
+  const area = document.getElementById('spread-area');
+  area.innerHTML = '';
+  [spread.left, spread.right].forEach((page, pi) => {
+    const div = document.createElement('div');
+    div.className = 'album-page';
+    div.innerHTML = `<div class="page-num-label">Page ${currentSpreadIdx * 2 + pi + 1}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'sticker-grid-page';
+    page.forEach(n => {
+      const val = state[n] || 0;
+      const el = document.createElement('div');
+      el.className = 'sticker' + (val === 1 ? ' owned' : val >= 2 ? ' double' : '');
+      el.innerHTML = `<span class="sticker-num">${n}</span><span class="tag-section">${spread.sectionLabel.replace('Groupe ','Gr.').replace('Introduction & Généralités','Intro')}</span>`;
+      el.title = `N°${n} · ${val === 0 ? 'Manquante' : val === 1 ? 'Collée' : 'Double'}`;
+      el.onclick = () => cycleSticker(n);
+      grid.appendChild(el);
+    });
+    div.appendChild(grid);
+    area.appendChild(div);
+  });
+}
+function prevSpread() { if (currentSpreadIdx > 0) { currentSpreadIdx--; renderSpread(); buildToc(); } }
+function nextSpread() { if (currentSpreadIdx < SPREADS.length - 1) { currentSpreadIdx++; renderSpread(); buildToc(); } }
+
+// ── Scanner ──
+function addToQueue(event) {
+  Array.from(event.target.files).forEach(file => {
+    queue.push({ id: Date.now() + Math.random(), file, url: URL.createObjectURL(file), name: file.name, status: 'pending', result: null });
+  });
+  event.target.value = '';
+  renderQueue();
+}
+function renderQueue() {
+  const grid = document.getElementById('queue-grid');
+  grid.innerHTML = '';
+  queue.forEach(item => {
+    const statusText = { pending:'En attente', analyzing:'Analyse...', done:'Analysee', error:'Erreur' }[item.status];
+    const statusClass = { pending:'status-pending', analyzing:'status-analyzing', done:'status-done', error:'status-error' }[item.status];
+    const div = document.createElement('div');
+    div.className = 'queue-item';
+    div.innerHTML = `<img class="queue-img" src="${item.url}" alt="${item.name}"><div class="queue-label">${item.name}</div><span class="queue-status ${statusClass}">${statusText}</span>${item.status==='pending'?`<button class="remove-btn" onclick="removeFromQueue('${item.id}')">x</button>`:''}`;
+    grid.appendChild(div);
+  });
+  document.getElementById('scan-actions').style.display = queue.length > 0 ? 'flex' : 'none';
+}
+function removeFromQueue(id) { queue = queue.filter(i => String(i.id) !== String(id)); renderQueue(); }
+function clearQueue() { queue = []; document.getElementById('scan-results-panel').innerHTML = ''; renderQueue(); }
+async function toBase64(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
+}
+async function analyzeOne(item) {
+  item.status = 'analyzing'; renderQueue();
+  try {
+    const b64 = await toBase64(item.file);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, messages:[{ role:'user', content:[
+        { type:'image', source:{ type:'base64', media_type: item.file.type||'image/jpeg', data:b64 } },
+        { type:'text', text:`Analyse cette photo d'album Panini CM 2026. Identifie les numeros de vignettes visibles. Reponds UNIQUEMENT JSON valide sans markdown: {"found":[entiers],"note":"note courte"}. Si rien: {"found":[],"note":"aucun numero"}` }
+      ]}] })
+    });
+    const data = await resp.json();
+    let text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim();
+    let parsed; try { parsed=JSON.parse(text); } catch(e) { parsed={found:[],note:'Format inattendu'}; }
+    item.result = { found:(parsed.found||[]).filter(n=>Number.isInteger(n)&&n>=1&&n<=TOTAL), note:parsed.note };
+    item.status='done';
+  } catch(e) { item.result={found:[],note:e.message}; item.status='error'; }
+  renderQueue();
+}
+async function analyzeAll() {
+  if (analyzing) return;
+  analyzing=true;
+  const btn=document.getElementById('btn-analyze');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Analyse en cours...';
+  document.getElementById('scan-results-panel').innerHTML=`<div style="padding:10px 12px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);font-size:13px;color:var(--color-text-secondary)"><div class="loading-bar"><div class="loading-bar-fill"></div></div>Analyse image par image...</div>`;
+  for (const item of queue.filter(i=>i.status==='pending'||i.status==='error')) await analyzeOne(item);
+  analyzing=false; btn.disabled=false; btn.innerHTML='<i class="ti ti-brain" aria-hidden="true"></i> Analyser toutes les images';
+  renderResults();
+}
+function renderResults() {
+  const panel=document.getElementById('scan-results-panel');
+  const done=queue.filter(i=>i.status==='done'&&i.result);
+  if (!done.length) { panel.innerHTML=''; return; }
+  const numSources={};
+  done.forEach(item => (item.result.found||[]).forEach(n => { if(!numSources[n]) numSources[n]=[]; numSources[n].push(item.name); }));
+  const allFound=Object.keys(numSources).map(Number).sort((a,b)=>a-b);
+  const newNums=allFound.filter(n=>!state[n]);
+  const alreadyOwned=allFound.filter(n=>state[n]>=1);
+  const crossDoubles=allFound.filter(n=>numSources[n].length>1);
+  let html=`<div style="font-size:14px;font-weight:500;color:var(--color-text-primary);margin:10px 0 8px"><i class="ti ti-chart-bar" aria-hidden="true" style="margin-right:5px;vertical-align:-2px"></i>Resultats - ${done.length} image(s)</div>`;
+  done.forEach(item => { const f=item.result.found||[]; html+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-secondary)"><i class="ti ti-photo" aria-hidden="true"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</span><span style="font-weight:500;color:var(--color-text-primary)">${f.length}</span></div>`; });
+  if (crossDoubles.length) html+=`<div class="result-section" style="margin-top:10px;border-color:#854F0B"><h3 style="color:#854F0B"><i class="ti ti-alert-triangle" aria-hidden="true" style="margin-right:5px"></i>Doublons entre pages (${crossDoubles.length})</h3><div class="chips">${crossDoubles.map(n=>`<span class="chip chip-double">N${n}</span>`).join('')}</div></div>`;
+  if (newNums.length) html+=`<div class="result-section"><h3 style="color:#27500A"><i class="ti ti-plus" aria-hidden="true" style="margin-right:5px"></i>Nouvelles a ajouter (${newNums.length})</h3><div class="chips">${newNums.map(n=>`<span class="chip chip-new">N${n}</span>`).join('')}</div></div>`;
+  if (alreadyOwned.length) html+=`<div class="result-section"><h3><i class="ti ti-check" aria-hidden="true" style="margin-right:5px"></i>Deja dans l'album (${alreadyOwned.length})</h3><div class="chips">${alreadyOwned.map(n=>`<span class="chip chip-already">N${n}</span>`).join('')}</div></div>`;
+  html+=`<div class="actions-row">`;
+  if (newNums.length) html+=`<button class="btn-primary" onclick="applyScanned(${JSON.stringify(newNums)})"><i class="ti ti-circle-check" aria-hidden="true"></i> Ajouter ${newNums.length} nouvelles</button>`;
+  if (allFound.length) html+=`<button class="btn-secondary" onclick="applyScanned(${JSON.stringify(allFound)})">Tout appliquer (${allFound.length})</button>`;
+  html+=`</div>`;
+  panel.innerHTML=html;
+}
+function applyScanned(nums) {
+  nums.forEach(n => { state[n]=(state[n]||0)===0?1:2; });
+  saveState(); updateStats(); buildToc();
+  showToast(`${nums.length} vignette(s) ajoutee(s)`);
+  renderResults();
+}
+
+// ── Doubles ──
+function renderDoubles() {
+  const container=document.getElementById('doubles-list');
+  const doubleNums=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k)).sort((a,b)=>a-b);
+  if (!doubleNums.length) { container.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--color-text-secondary);font-size:14px"><i class="ti ti-mood-smile" aria-hidden="true" style="font-size:28px;display:block;margin-bottom:7px"></i>Aucun double pour l'instant !</div>`; return; }
+  let html=`<p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px">${doubleNums.length} vignette(s) en double</p>`;
+  SECTIONS.forEach(sec => {
+    const d=doubleNums.filter(n=>n>=sec.range[0]&&n<=sec.range[1]);
+    if (!d.length) return;
+    html+=`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:5px">${sec.emoji} ${sec.label}</div><div class="chips">${d.map(n=>`<span class="chip chip-double" style="cursor:pointer" onclick="removeDouble(${n})" title="Retirer le double">N${n} x</span>`).join('')}</div></div>`;
+  });
+  html+=`<button class="btn-secondary" style="margin-top:8px" onclick="copyDoubles()"><i class="ti ti-clipboard" aria-hidden="true"></i> Copier la liste</button>`;
+  container.innerHTML=html;
+}
+function removeDouble(num) { if(state[num]>=2) state[num]=1; saveState(); updateStats(); buildToc(); renderDoubles(); }
+function copyDoubles() {
+  const d=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k)).sort((a,b)=>a-b);
+  navigator.clipboard.writeText('Doubles Panini CM 2026 : '+d.join(', ')).then(()=>showToast('Copie !')).catch(()=>{});
+}
+
+// ── PDF ──
+function generatePDF() {
+  const inclMissing = document.getElementById('pdf-missing').checked;
+  const inclDoubles = document.getElementById('pdf-doubles').checked;
+  const inclProgress = document.getElementById('pdf-progress').checked;
+  if (!inclMissing && !inclDoubles && !inclProgress) { showToast('Selectionnez au moins une option', '#c8310a'); return; }
+
+  const statusEl = document.getElementById('pdf-status');
+  statusEl.innerHTML = '<span class="spinner" style="border-color:#1a6b3a;border-top-color:transparent;display:inline-block;margin-right:6px"></span>Generation en cours...';
+
+  setTimeout(() => {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const W = 210, H = 297;
+      const marginL = 15, marginR = 15, marginT = 20, marginB = 20;
+      const contentW = W - marginL - marginR;
+
+      // ── Palette ──
+      const GREEN = [26, 107, 58];
+      const GOLD = [200, 169, 81];
+      const DARK = [28, 28, 46];
+      const GRAY = [120, 120, 120];
+      const LIGHT_GRAY = [240, 240, 240];
+      const ORANGE = [200, 100, 15];
+
+      // ── Page de couverture ──
+      doc.setFillColor(...GREEN);
+      doc.rect(0, 0, W, H, 'F');
+      // Bande dorée
+      doc.setFillColor(...GOLD);
+      doc.rect(0, H/2 - 28, W, 56, 'F');
+      // Titre
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(26);
+      doc.setFont('helvetica','bold');
+      doc.text('PANINI', W/2, 85, { align:'center' });
+      doc.setFontSize(16);
+      doc.setFont('helvetica','normal');
+      doc.text('Coupe du Monde 2026', W/2, 96, { align:'center' });
+      // Sous-titre sur fond doré
+      doc.setTextColor(...DARK);
+      doc.setFontSize(18);
+      doc.setFont('helvetica','bold');
+      const typeParts = [];
+      if (inclMissing) typeParts.push('Manquantes');
+      if (inclDoubles) typeParts.push('Doubles');
+      doc.text(typeParts.join(' & '), W/2, H/2 - 4, { align:'center' });
+      doc.setFontSize(11);
+      doc.setFont('helvetica','normal');
+      doc.text('Structurees par section', W/2, H/2 + 6, { align:'center' });
+      // Stats
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(11);
+      const owned = getOwned(), doubles = getDoubles();
+      const missing = TOTAL - owned;
+      const pct = Math.round(owned/TOTAL*100);
+      doc.text(`${owned} collees  |  ${missing} manquantes  |  ${doubles} doubles  |  ${pct}% complet`, W/2, H - 55, { align:'center' });
+      doc.setFontSize(9);
+      doc.setTextColor(...GOLD);
+      doc.text('Canada  -  Etats-Unis  -  Mexique', W/2, H - 46, { align:'center' });
+      doc.setTextColor(180,200,180);
+      doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, W/2, H - 36, { align:'center' });
+
+      // ── Page progression (optionnel) ──
+      if (inclProgress) {
+        doc.addPage();
+        let y = marginT;
+        // En-tete
+        doc.setFillColor(...GREEN);
+        doc.rect(0, 0, W, 14, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(10);
+        doc.setFont('helvetica','bold');
+        doc.text('PROGRESSION PAR SECTION', marginL, 9);
+        doc.text(`${pct}% complet`, W - marginR, 9, { align:'right' });
+        y = 24;
+
+        SECTIONS.forEach(sec => {
+          if (y > H - marginB - 12) { doc.addPage(); y = marginT; }
+          const total = sec.range[1] - sec.range[0] + 1;
+          const secOwned = Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=1).length;
+          const secPct = Math.round(secOwned/total*100);
+          // Nom section
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...DARK);
+          doc.text(sec.label, marginL, y);
+          // Chiffres
+          doc.setFont('helvetica','normal');
+          doc.setTextColor(...GRAY);
+          doc.text(`${secOwned}/${total}`, W - marginR, y, { align:'right' });
+          y += 3.5;
+          // Barre fond
+          doc.setFillColor(...LIGHT_GRAY);
+          doc.roundedRect(marginL, y, contentW, 4, 1, 1, 'F');
+          // Barre remplie
+          if (secPct > 0) {
+            doc.setFillColor(...GREEN);
+            doc.roundedRect(marginL, y, contentW * secPct / 100, 4, 1, 1, 'F');
+          }
+          // % label
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...GREEN);
+          doc.text(`${secPct}%`, marginL + contentW * secPct / 100 + 2, y + 3);
+          y += 10;
+        });
+      }
+
+      // ── Pages par section ──
+      SECTIONS.forEach(sec => {
+        const total = sec.range[1] - sec.range[0] + 1;
+        const missingNums = inclMissing ? Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>!state[n]) : [];
+        const doubleNums = inclDoubles ? Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=2) : [];
+        if (!missingNums.length && !doubleNums.length) return;
+
+        doc.addPage();
+        let y = 0;
+
+        // Bandeau section
+        doc.setFillColor(...GREEN);
+        doc.rect(0, 0, W, 16, 'F');
+        doc.setFillColor(...GOLD);
+        doc.rect(0, 16, W, 2, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(13);
+        doc.text(sec.label.toUpperCase(), marginL, 11);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(9);
+        doc.text(`N ${sec.range[0]} a ${sec.range[1]}  |  ${total} vignettes`, W - marginR, 11, { align:'right' });
+        y = 26;
+
+        // Stats section
+        const secOwned = Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=1).length;
+        const secPct = Math.round(secOwned/total*100);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(...GRAY);
+        doc.text(`${secOwned} collees  |  ${missingNums.length} manquantes  |  ${doubleNums.length} doubles  |  ${secPct}% complete`, marginL, y);
+        y += 3;
+        // Mini barre
+        doc.setFillColor(...LIGHT_GRAY);
+        doc.roundedRect(marginL, y, contentW, 3, 0.8, 0.8, 'F');
+        if (secPct > 0) { doc.setFillColor(...GREEN); doc.roundedRect(marginL, y, contentW*secPct/100, 3, 0.8, 0.8, 'F'); }
+        y += 9;
+
+        // ── Bloc manquantes ──
+        if (inclMissing && missingNums.length > 0) {
+          doc.setFillColor(234, 243, 222);
+          doc.roundedRect(marginL, y, contentW, 7, 1.5, 1.5, 'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...GREEN);
+          doc.text(`MANQUANTES (${missingNums.length})`, marginL + 4, y + 5);
+          y += 12;
+
+          // Grille de chips
+          const chipW = 16, chipH = 7, chipGap = 3, chipsPerRow = Math.floor(contentW / (chipW + chipGap));
+          missingNums.forEach((n, idx) => {
+            if (y > H - marginB - chipH) { doc.addPage(); y = marginT; }
+            const col = idx % chipsPerRow;
+            const x = marginL + col * (chipW + chipGap);
+            if (col === 0 && idx > 0) y += chipH + chipGap;
+            doc.setFillColor(...LIGHT_GRAY);
+            doc.roundedRect(x, y, chipW, chipH, 1.5, 1.5, 'F');
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(`${n}`, x + chipW/2, y + 4.8, { align:'center' });
+          });
+          const lastRowMissing = missingNums.length % chipsPerRow;
+          y += chipH + 8;
+        }
+
+        // ── Bloc doubles ──
+        if (inclDoubles && doubleNums.length > 0) {
+          if (y > H - marginB - 20) { doc.addPage(); y = marginT; }
+          doc.setFillColor(250, 238, 218);
+          doc.roundedRect(marginL, y, contentW, 7, 1.5, 1.5, 'F');
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...ORANGE);
+          doc.text(`DOUBLES (${doubleNums.length})`, marginL + 4, y + 5);
+          y += 12;
+
+          const chipW = 16, chipH = 7, chipGap = 3, chipsPerRow = Math.floor(contentW / (chipW + chipGap));
+          doubleNums.forEach((n, idx) => {
+            if (y > H - marginB - chipH) { doc.addPage(); y = marginT; }
+            const col = idx % chipsPerRow;
+            const x = marginL + col * (chipW + chipGap);
+            if (col === 0 && idx > 0) y += chipH + chipGap;
+            doc.setFillColor(250, 238, 218);
+            doc.roundedRect(x, y, chipW, chipH, 1.5, 1.5, 'F');
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(`${n}`, x + chipW/2, y + 4.8, { align:'center' });
+          });
+          y += chipH + 8;
+        }
+      });
+
+      // ── Numerotation ──
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 2; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...GRAY);
+        doc.text(`Panini CM 2026  |  Page ${i - 1} / ${pageCount - 1}`, W/2, H - 8, { align:'center' });
+      }
+
+      const filename = `panini-cm2026-${typeParts.join('-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(filename);
+      statusEl.innerHTML = `<span style="color:#27500A"><i class="ti ti-check" aria-hidden="true"></i> PDF genere : ${filename}</span>`;
+      showToast('PDF telecharge !');
+    } catch(err) {
+      statusEl.innerHTML = `<span style="color:#A32D2D">Erreur : ${err.message}</span>`;
+    }
+  }, 50);
+}
+
+// ── Sauvegarde JSON ──
+function exportCollection() {
+  const data = { version:1, date:new Date().toISOString(), album:'Panini Coupe du Monde 2026', total:TOTAL, owned:getOwned(), doubles:getDoubles(), state };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `panini-cm2026-${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Fichier telecharge');
+}
+function importCollection(event) {
+  const file = event.target.files[0]; if (!file) return;
+  event.target.value = '';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.state || typeof data.state !== 'object') throw new Error('Format invalide');
+      pendingImport = data.state;
+      const io = Object.values(data.state).filter(v=>v>=1).length;
+      const id = Object.values(data.state).filter(v=>v>=2).length;
+      document.getElementById('merge-desc').textContent = `Fichier : ${io} collee(s), ${id} double(s).${data.date?' Sauvegarde le '+new Date(data.date).toLocaleDateString('fr-FR')+'.':''}\n\nFusionner conserve votre collection et ajoute les nouvelles. Remplacer ecrase tout.`;
+      document.getElementById('merge-overlay').classList.add('show');
+    } catch(err) {
+      document.getElementById('import-preview').innerHTML = `<p style="color:#A32D2D;font-size:13px">Fichier invalide : ${err.message}</p>`;
+    }
+  };
+  reader.readAsText(file);
+}
+function applyImport(mode) {
+  if (!pendingImport) return;
+  if (mode==='replace') state={...pendingImport};
+  else Object.entries(pendingImport).forEach(([k,v]) => { const n=Number(k); state[n]=Math.max(state[n]||0,v); });
+  pendingImport=null; hideMerge();
+  saveState(); updateStats(); buildToc();
+  showToast(mode==='replace'?'Collection remplacee':'Collections fusionnees');
+}
+function shareMissing() {
+  const missing=[]; for(let i=1;i<=TOTAL;i++){if(!state[i])missing.push(i);}
+  navigator.clipboard.writeText(`Manquantes Panini CM 2026 (${missing.length}) : ${missing.join(', ')}`).then(()=>showToast('Manquantes copiees !')).catch(()=>{});
+}
+function shareDoubles() {
+  const d=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k)).sort((a,b)=>a-b);
+  navigator.clipboard.writeText(`Doubles Panini CM 2026 (${d.length}) : ${d.join(', ')}`).then(()=>showToast('Doubles copies !')).catch(()=>{});
+}
+function showConfirm() { document.getElementById('confirm-overlay').classList.add('show'); }
+function hideConfirm() { document.getElementById('confirm-overlay').classList.remove('show'); }
+function hideMerge() { document.getElementById('merge-overlay').classList.remove('show'); }
+function resetCollection() { state={}; saveState(); updateStats(); buildToc(); renderSpread(); hideConfirm(); showToast('Collection reinitialisee','#A32D2D'); if(currentView==='doubles') renderDoubles(); }
+function switchView(v) {
+  currentView=v;
+  ['album','scanner','doubles','sauvegarde'].forEach(id => {
+    document.getElementById('view-'+id).style.display=id===v?'':'none';
+    document.getElementById('nav-'+id).classList.toggle('active',id===v);
+  });
+  if(v==='doubles') renderDoubles();
+  if(v==='sauvegarde') updateExportMeta();
+}
+
+// Drag & drop
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('dragover');
+  Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')).forEach(file=>{
+    queue.push({id:Date.now()+Math.random(),file,url:URL.createObjectURL(file),name:file.name,status:'pending',result:null});
+  });
+  renderQueue();
+});
+
+async function init() { await loadState(); buildToc(); renderSpread(); updateStats(); }
+init();
+</script>
