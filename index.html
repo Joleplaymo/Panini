@@ -193,6 +193,45 @@
   border-color: var(--pan-green);
 }
 
+/* Onglets Manquantes / Doubles : cartes par équipe façon page d'album / PDF */
+.list-section {
+  background: var(--pan-surface);
+  border: 1px solid var(--pan-border);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 12px -10px rgba(43,42,36,.4);
+}
+.list-sec-head {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--pan-green);
+  border-left: 4px solid var(--pan-gold);
+  color: #fff;
+  padding: 6px 12px;
+}
+.list-sec-head .ls-flag { font-size: 15px; }
+.list-sec-head .ls-name {
+  font-family: 'Anton', sans-serif; font-size: 13px; letter-spacing: .5px;
+  text-transform: uppercase; flex: 1;
+}
+.list-sec-head .ls-grp { font-size: 10px; opacity: .8; font-weight: 600; }
+.list-sec-head .ls-count {
+  background: rgba(255,255,255,.2); border-radius: 999px;
+  padding: 1px 9px; font-size: 11px; font-weight: 700;
+}
+.list-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 12px; }
+.list-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 24px; padding: 0 7px;
+  border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; user-select: none; transition: transform .1s;
+}
+.list-chip:hover { transform: scale(1.08); }
+.list-chip.miss { background: var(--pan-sand); border: 1.5px dashed var(--pan-border-2); color: var(--pan-muted); }
+.list-chip.miss:hover { border-style: solid; border-color: var(--pan-green); color: var(--pan-green-dk); }
+.list-chip.dbl { background: var(--pan-peach); border: 1.5px solid var(--pan-peach-bd); color: #6e3a0e; }
+.list-empty { text-align: center; padding: 2rem; color: var(--pan-muted); font-size: 14px; }
+.list-empty i { font-size: 28px; display: block; margin-bottom: 7px; }
 /* Encadré KPI : équipes terminées */
 .completed-box {
   background: var(--pan-surface);
@@ -368,7 +407,6 @@
 </style>
 
 <div class="app">
-  <h2 class="sr-only">Suivi album Panini Coupe du Monde 2026</h2>
   <div class="header">
     <span style="font-size:26px">🏆</span>
     <div class="header-text">
@@ -389,6 +427,7 @@
   <div class="completed-box" id="completed-box"></div>
   <div class="main-nav">
     <button class="active" onclick="switchView('album')" id="nav-album"><i class="ti ti-book" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Album</button>
+    <button onclick="switchView('missing')" id="nav-missing"><i class="ti ti-checklist" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Manquantes</button>
     <button onclick="switchView('doubles')" id="nav-doubles"><i class="ti ti-copy" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Doubles</button>
     <button onclick="switchView('sauvegarde')" id="nav-sauvegarde"><i class="ti ti-device-floppy" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"></i>Sauvegarde</button>
   </div>
@@ -424,9 +463,15 @@
     </div>
   </div>
 
+  <!-- VUE MANQUANTES -->
+  <div id="view-missing" style="display:none">
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Vos vignettes manquantes, par équipe. Clic sur un numéro pour le marquer collé.</p>
+    <div id="missing-list"></div>
+  </div>
+
   <!-- VUE DOUBLES -->
   <div id="view-doubles" style="display:none">
-    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Vos vignettes en double, prêtes à l'échange.</p>
+    <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:10px">Vos vignettes en double, prêtes à l'échange. Clic sur un numéro pour retirer le double.</p>
     <div id="doubles-list"></div>
   </div>
 
@@ -676,6 +721,7 @@ function cycleSticker(num) {
   state[num] = ((state[num] || 0) + 1) % 3;
   saveState(); updateStats(); buildToc(); renderSpread();
   if (currentView === 'doubles') renderDoubles();
+  if (currentView === 'missing') renderMissing();
 }
 function renderSpread() {
   const spread = SPREADS[currentSpreadIdx];
@@ -743,21 +789,51 @@ function renderSpread() {
 function prevSpread() { if (currentSpreadIdx > 0) { currentSpreadIdx--; renderSpread(); buildToc(); } }
 function nextSpread() { if (currentSpreadIdx < SPREADS.length - 1) { currentSpreadIdx++; renderSpread(); buildToc(); } }
 
+// ── Listes par équipe (façon pages d'album / PDF) ──
+// Construit les cartes par section pour les vignettes correspondant à `pred`.
+function buildSectionCards(pred, chipClass, chipAction, chipTitle) {
+  let html = '';
+  SECTIONS.forEach(sec => {
+    const nums = [];
+    for (let n = sec.range[0]; n <= sec.range[1]; n++) if (pred(n)) nums.push(n);
+    if (!nums.length) return;
+    const grpLbl = sec.group ? `Gr. ${sec.group}` : '';
+    const chips = nums.map(n => {
+      const local = sec.group ? (n - sec.range[0] + 1) : n;
+      return `<span class="list-chip ${chipClass}" onclick="${chipAction}(${n})" title="${chipTitle}">${local}</span>`;
+    }).join('');
+    html += `<div class="list-section">
+      <div class="list-sec-head"><span class="ls-flag">${sec.emoji}</span><span class="ls-name">${sec.label}</span>${grpLbl?`<span class="ls-grp">${grpLbl}</span>`:''}<span class="ls-count">${nums.length}</span></div>
+      <div class="list-chips">${chips}</div>
+    </div>`;
+  });
+  return html;
+}
+
+// ── Manquantes ──
+function renderMissing() {
+  const container = document.getElementById('missing-list');
+  const total = Object.keys(state).reduce((a,k)=>state[k]>=1?a+1:a,0);
+  const missingCount = TOTAL - total;
+  if (!missingCount) { container.innerHTML = `<div class="list-empty"><i class="ti ti-trophy" aria-hidden="true"></i>Album complet, aucune manquante !</div>`; return; }
+  let html = `<p style="font-size:12px;color:var(--pan-muted);margin-bottom:10px">${missingCount} vignette(s) manquante(s)</p>`;
+  html += buildSectionCards(n => !(state[n] >= 1), 'miss', 'markOwned', 'Marquer collée');
+  html += `<button class="btn-secondary" style="margin-top:4px" onclick="shareMissing()"><i class="ti ti-clipboard" aria-hidden="true"></i> Copier la liste</button>`;
+  container.innerHTML = html;
+}
+function markOwned(num) { if (!(state[num] >= 1)) state[num] = 1; saveState(); updateStats(); buildToc(); renderMissing(); if (currentView==='album') renderSpread(); }
+
 // ── Doubles ──
 function renderDoubles() {
   const container=document.getElementById('doubles-list');
-  const doubleNums=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k)).sort((a,b)=>a-b);
-  if (!doubleNums.length) { container.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--color-text-secondary);font-size:14px"><i class="ti ti-mood-smile" aria-hidden="true" style="font-size:28px;display:block;margin-bottom:7px"></i>Aucun double pour l'instant !</div>`; return; }
-  let html=`<p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px">${doubleNums.length} vignette(s) en double</p>`;
-  SECTIONS.forEach(sec => {
-    const d=doubleNums.filter(n=>n>=sec.range[0]&&n<=sec.range[1]);
-    if (!d.length) return;
-    html+=`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:5px">${sec.emoji} ${sec.label}</div><div class="chips">${d.map(n=>`<span class="chip chip-double" style="cursor:pointer" onclick="removeDouble(${n})" title="Retirer le double">N${n} x</span>`).join('')}</div></div>`;
-  });
-  html+=`<button class="btn-secondary" style="margin-top:8px" onclick="copyDoubles()"><i class="ti ti-clipboard" aria-hidden="true"></i> Copier la liste</button>`;
+  const doubleNums=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k));
+  if (!doubleNums.length) { container.innerHTML=`<div class="list-empty"><i class="ti ti-mood-smile" aria-hidden="true"></i>Aucun double pour l'instant !</div>`; return; }
+  let html=`<p style="font-size:12px;color:var(--pan-muted);margin-bottom:10px">${doubleNums.length} vignette(s) en double</p>`;
+  html += buildSectionCards(n => state[n] >= 2, 'dbl', 'removeDouble', 'Retirer le double');
+  html+=`<button class="btn-secondary" style="margin-top:4px" onclick="copyDoubles()"><i class="ti ti-clipboard" aria-hidden="true"></i> Copier la liste</button>`;
   container.innerHTML=html;
 }
-function removeDouble(num) { if(state[num]>=2) state[num]=1; saveState(); updateStats(); buildToc(); renderDoubles(); }
+function removeDouble(num) { if(state[num]>=2) state[num]=1; saveState(); updateStats(); buildToc(); renderDoubles(); if (currentView==='album') renderSpread(); }
 function copyDoubles() {
   const d=Object.entries(state).filter(([,v])=>v>=2).map(([k])=>Number(k)).sort((a,b)=>a-b);
   navigator.clipboard.writeText('Doubles Panini CM 2026 : '+d.join(', ')).then(()=>showToast('Copie !')).catch(()=>{});
@@ -1005,13 +1081,14 @@ function shareDoubles() {
 function showConfirm() { document.getElementById('confirm-overlay').classList.add('show'); }
 function hideConfirm() { document.getElementById('confirm-overlay').classList.remove('show'); }
 function hideMerge() { document.getElementById('merge-overlay').classList.remove('show'); }
-function resetCollection() { state={}; saveState(); updateStats(); buildToc(); renderSpread(); hideConfirm(); showToast('Collection reinitialisee','#A32D2D'); if(currentView==='doubles') renderDoubles(); }
+function resetCollection() { state={}; saveState(); updateStats(); buildToc(); renderSpread(); hideConfirm(); showToast('Collection reinitialisee','#A32D2D'); if(currentView==='doubles') renderDoubles(); if(currentView==='missing') renderMissing(); }
 function switchView(v) {
   currentView=v;
-  ['album','doubles','sauvegarde'].forEach(id => {
+  ['album','missing','doubles','sauvegarde'].forEach(id => {
     document.getElementById('view-'+id).style.display=id===v?'':'none';
     document.getElementById('nav-'+id).classList.toggle('active',id===v);
   });
+  if(v==='missing') renderMissing();
   if(v==='doubles') renderDoubles();
   if(v==='sauvegarde') updateExportMeta();
 }
