@@ -193,8 +193,21 @@
   border-color: var(--pan-green);
 }
 
+/* Colonne sommaire + barre de recherche pays */
+.album-toc-col { border-right: 0.5px solid var(--pan-border); padding-right: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.album-toc-col .album-toc { border-right: none; padding-right: 0; overflow-y: auto; flex: 1; }
+.toc-search { display: flex; align-items: center; gap: 6px; background: var(--pan-surface); border: 1px solid var(--pan-border-2); border-radius: 999px; padding: 5px 10px; }
+.toc-search i { font-size: 14px; color: var(--pan-muted); }
+.toc-search input { flex: 1; border: none; background: transparent; font-size: 12px; color: var(--pan-ink); outline: none; min-width: 0; }
+.toc-search input::placeholder { color: var(--pan-muted); }
+.toc-search button { border: none; background: transparent; color: var(--pan-muted); cursor: pointer; padding: 0; display: flex; font-size: 13px; }
+.toc-search button:hover { color: var(--pan-red); }
+.toc-empty { font-size: 11px; color: var(--pan-muted); padding: 8px 7px; font-style: italic; }
 /* Sommaire : en-tête de groupe (façon bandeau GROUP A) + item actif */
 .toc-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: 'Anton', sans-serif;
   font-size: 11px;
   letter-spacing: 1px;
@@ -203,7 +216,12 @@
   padding: 8px 7px 3px;
   margin-top: 4px;
   border-top: 1px solid var(--pan-border);
+  cursor: pointer;
+  user-select: none;
 }
+.toc-group:hover { color: var(--pan-green); }
+.toc-group-chev { font-size: 10px; transition: transform .15s; }
+.toc-group.collapsed .toc-group-chev { transform: rotate(-90deg); }
 .toc-group:first-child { border-top: none; margin-top: 0; }
 .toc-item.active { background: var(--pan-green-bg); color: var(--pan-green-dk); }
 .toc-mini-fill { background: var(--pan-green); }
@@ -350,7 +368,14 @@
   <!-- VUE ALBUM -->
   <div id="view-album">
     <div class="album-layout">
-      <div class="album-toc" id="toc"></div>
+      <div class="album-toc-col">
+        <div class="toc-search">
+          <i class="ti ti-search" aria-hidden="true"></i>
+          <input type="text" id="toc-search-input" placeholder="Chercher un pays…" oninput="setTocFilter(this.value)" autocomplete="off">
+          <button id="toc-search-clear" type="button" onclick="setTocFilter('')" title="Effacer" style="display:none"><i class="ti ti-x" aria-hidden="true"></i></button>
+        </div>
+        <div class="album-toc" id="toc"></div>
+      </div>
       <div class="album-pages">
         <div class="page-header">
           <h2 id="spread-title">Intro</h2>
@@ -489,8 +514,8 @@ const TEAMS = [
 const SECTION_DEFS = [
   // Intro numérotée 0 → 19 (le 0 et le 19 inclus comme sur l'album)
   { id:'intro', label:'Introduction & Généralités', emoji:'📋', count:20, startPage:1 },
-  // Pages album : Mexique 8/9, Afrique du Sud 10/11, … = 8 + index*2 (cf. sommaire du livret)
-  ...TEAMS.map((t, i) => ({ id:'team'+i, group:t[0], label:t[1], emoji:t[2], count:20, startPage:8 + i*2 })),
+  // Pages album : 8 + index*2 ; saut de +2 avant le groupe G (Belgique en 58, cf. sommaire du livret)
+  ...TEAMS.map((t, i) => ({ id:'team'+i, group:t[0], label:t[1], emoji:t[2], count:20, startPage:8 + i*2 + (i >= 24 ? 2 : 0) })),
 ];
 let _cur = 0;
 const SECTIONS = SECTION_DEFS.map(s => {
@@ -557,18 +582,43 @@ function updateExportMeta() {
   if (!el) return;
   el.textContent = `${getOwned()} collée(s), ${getDoubles()} double(s), ${Math.round(getOwned()/TOTAL*100)}% de l'album.`;
 }
+let collapsedGroups = {};
+let tocFilter = '';
+const normTxt = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function setTocFilter(v) {
+  tocFilter = v;
+  const clr = document.getElementById('toc-search-clear');
+  if (clr) clr.style.display = v ? '' : 'none';
+  buildToc();
+}
+function toggleGroup(g) { collapsedGroups[g] = !collapsedGroups[g]; buildToc(); }
 function buildToc() {
   const toc = document.getElementById('toc');
   toc.innerHTML = '';
+  const q = normTxt(tocFilter.trim());
+  const filtering = q.length > 0;
+  // sections retenues par le filtre (recherche par nom de pays)
+  const matches = sec => !filtering || normTxt(sec.label).includes(q);
+  // groupes ayant au moins une équipe correspondante (pour afficher l'en-tête)
+  const groupHasMatch = {};
+  if (filtering) SECTIONS.forEach(s => { if (s.group && matches(s)) groupHasMatch[s.group] = true; });
+  let shown = 0;
   let lastGroup = null;
   SECTIONS.forEach(sec => {
     if (sec.group && sec.group !== lastGroup) {
       lastGroup = sec.group;
-      const h = document.createElement('div');
-      h.className = 'toc-group';
-      h.textContent = 'Groupe ' + sec.group;
-      toc.appendChild(h);
+      if (!filtering || groupHasMatch[sec.group]) {
+        const collapsed = !filtering && !!collapsedGroups[sec.group];
+        const h = document.createElement('div');
+        h.className = 'toc-group' + (collapsed ? ' collapsed' : '');
+        h.innerHTML = `<span class="toc-group-chev">▾</span><span>Groupe ${sec.group}</span>`;
+        h.onclick = () => toggleGroup(sec.group);
+        toc.appendChild(h);
+      }
     }
+    if (filtering) { if (!matches(sec)) return; }                       // filtre actif : on ne garde que les correspondances
+    else if (sec.group && collapsedGroups[sec.group]) return;           // groupe replié → on saute ses équipes
+    shown++;
     const total = sec.range[1] - sec.range[0] + 1;
     const owned = Array.from({length: total}, (_, i) => sec.range[0] + i).filter(n => state[n] >= 1).length;
     const pct = Math.round(owned / total * 100);
@@ -581,6 +631,12 @@ function buildToc() {
     div.onclick = () => { currentSpreadIdx = firstSpread >= 0 ? firstSpread : 0; renderSpread(); buildToc(); };
     toc.appendChild(div);
   });
+  if (filtering && shown === 0) {
+    const e = document.createElement('div');
+    e.className = 'toc-empty';
+    e.textContent = 'Aucun pays trouvé';
+    toc.appendChild(e);
+  }
 }
 function cycleSticker(num) {
   state[num] = ((state[num] || 0) + 1) % 3;
@@ -866,99 +922,69 @@ function generatePDF() {
         });
       }
 
-      // ── Pages par section ──
-      SECTIONS.forEach(sec => {
+      // ── Listes par section (flux continu, espace optimisé : pas une équipe par page) ──
+      const secsWithContent = SECTIONS.map(sec => {
         const total = sec.range[1] - sec.range[0] + 1;
         const missingNums = inclMissing ? Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>!state[n]) : [];
         const doubleNums = inclDoubles ? Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=2) : [];
-        if (!missingNums.length && !doubleNums.length) return;
+        return { sec, total, missingNums, doubleNums };
+      }).filter(o => o.missingNums.length || o.doubleNums.length);
 
+      if (secsWithContent.length) {
         doc.addPage();
-        let y = 0;
-
-        // Bandeau section
-        doc.setFillColor(...GREEN);
-        doc.rect(0, 0, W, 16, 'F');
-        doc.setFillColor(...GOLD);
-        doc.rect(0, 16, W, 2, 'F');
-        doc.setTextColor(255,255,255);
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(13);
-        doc.text(sec.label.toUpperCase(), marginL, 11);
-        doc.setFont('helvetica','normal');
-        doc.setFontSize(9);
-        doc.text(`N ${sec.range[0]} a ${sec.range[1]}  |  ${total} vignettes`, W - marginR, 11, { align:'right' });
-        y = 26;
-
-        // Stats section
-        const secOwned = Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=1).length;
-        const secPct = Math.round(secOwned/total*100);
-        doc.setFontSize(8.5);
-        doc.setFont('helvetica','normal');
-        doc.setTextColor(...GRAY);
-        doc.text(`${secOwned} collees  |  ${missingNums.length} manquantes  |  ${doubleNums.length} doubles  |  ${secPct}% complete`, marginL, y);
-        y += 3;
-        // Mini barre
-        doc.setFillColor(...LIGHT_GRAY);
-        doc.roundedRect(marginL, y, contentW, 3, 0.8, 0.8, 'F');
-        if (secPct > 0) { doc.setFillColor(...GREEN); doc.roundedRect(marginL, y, contentW*secPct/100, 3, 0.8, 0.8, 'F'); }
-        y += 9;
-
-        // ── Bloc manquantes ──
-        if (inclMissing && missingNums.length > 0) {
-          doc.setFillColor(234, 243, 222);
-          doc.roundedRect(marginL, y, contentW, 7, 1.5, 1.5, 'F');
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...GREEN);
-          doc.text(`MANQUANTES (${missingNums.length})`, marginL + 4, y + 5);
-          y += 12;
-
-          // Grille de chips
-          const chipW = 16, chipH = 7, chipGap = 3, chipsPerRow = Math.floor(contentW / (chipW + chipGap));
-          missingNums.forEach((n, idx) => {
-            if (y > H - marginB - chipH) { doc.addPage(); y = marginT; }
-            const col = idx % chipsPerRow;
+        let y = marginT;
+        const chipW = 14, chipH = 6.5, chipGap = 2.5, chipsPerRow = Math.floor(contentW / (chipW + chipGap));
+        const drawChips = (nums, fill, sec) => {
+          let col = 0;
+          nums.forEach(n => {
+            if (col === 0 && y > H - marginB - chipH) { doc.addPage(); y = marginT; }
             const x = marginL + col * (chipW + chipGap);
-            if (col === 0 && idx > 0) y += chipH + chipGap;
-            doc.setFillColor(...LIGHT_GRAY);
-            doc.roundedRect(x, y, chipW, chipH, 1.5, 1.5, 'F');
-            doc.setFont('helvetica','normal');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...DARK);
-            doc.text(`${n}`, x + chipW/2, y + 4.8, { align:'center' });
+            // n° local équipe (1-20) pour les pays ; n° global pour l'intro
+            const label = sec.group ? (n - sec.range[0] + 1) : n;
+            doc.setFillColor(...fill);
+            doc.roundedRect(x, y, chipW, chipH, 1.2, 1.2, 'F');
+            doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...DARK);
+            doc.text(`${label}`, x + chipW/2, y + 4.5, { align:'center' });
+            col++;
+            if (col >= chipsPerRow) { col = 0; y += chipH + chipGap; }
           });
-          const lastRowMissing = missingNums.length % chipsPerRow;
-          y += chipH + 8;
-        }
+          if (col !== 0) y += chipH + chipGap;
+        };
 
-        // ── Bloc doubles ──
-        if (inclDoubles && doubleNums.length > 0) {
-          if (y > H - marginB - 20) { doc.addPage(); y = marginT; }
-          doc.setFillColor(250, 238, 218);
-          doc.roundedRect(marginL, y, contentW, 7, 1.5, 1.5, 'F');
-          doc.setFont('helvetica','bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...ORANGE);
-          doc.text(`DOUBLES (${doubleNums.length})`, marginL + 4, y + 5);
-          y += 12;
+        secsWithContent.forEach(({ sec, total, missingNums, doubleNums }) => {
+          // saut de page seulement si l'en-tête + une ligne ne tiennent pas
+          if (y + 22 > H - marginB) { doc.addPage(); y = marginT; }
 
-          const chipW = 16, chipH = 7, chipGap = 3, chipsPerRow = Math.floor(contentW / (chipW + chipGap));
-          doubleNums.forEach((n, idx) => {
-            if (y > H - marginB - chipH) { doc.addPage(); y = marginT; }
-            const col = idx % chipsPerRow;
-            const x = marginL + col * (chipW + chipGap);
-            if (col === 0 && idx > 0) y += chipH + chipGap;
-            doc.setFillColor(250, 238, 218);
-            doc.roundedRect(x, y, chipW, chipH, 1.5, 1.5, 'F');
-            doc.setFont('helvetica','normal');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...DARK);
-            doc.text(`${n}`, x + chipW/2, y + 4.8, { align:'center' });
-          });
-          y += chipH + 8;
-        }
-      });
+          // Bandeau de section (en ligne, pas pleine page)
+          const secOwned = Array.from({length:total},(_,i)=>sec.range[0]+i).filter(n=>state[n]>=1).length;
+          const secPct = Math.round(secOwned/total*100);
+          doc.setFillColor(...GREEN);
+          doc.roundedRect(marginL, y, contentW, 9, 1.5, 1.5, 'F');
+          doc.setFillColor(...GOLD);
+          doc.roundedRect(marginL, y, 2.2, 9, 1, 1, 'F');
+          doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+          doc.text(sec.label.toUpperCase(), marginL + 5, y + 6);
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          const rangeLbl = sec.group ? `N 1-${total}` : `N ${sec.range[0]}-${sec.range[1]}`;
+          doc.text(`${rangeLbl} · ${secPct}%`, W - marginR - 3, y + 6, { align:'right' });
+          y += 12.5;
+
+          if (inclMissing && missingNums.length) {
+            doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...GREEN);
+            doc.text(`Manquantes (${missingNums.length})`, marginL, y); y += 4;
+            drawChips(missingNums, LIGHT_GRAY, sec);
+            y += 1.5;
+          }
+          if (inclDoubles && doubleNums.length) {
+            if (y + 11 > H - marginB) { doc.addPage(); y = marginT; }
+            doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...ORANGE);
+            doc.text(`Doubles (${doubleNums.length})`, marginL, y); y += 4;
+            drawChips(doubleNums, [250,238,218], sec);
+            y += 1.5;
+          }
+          y += 4; // séparation entre sections
+        });
+      }
 
       // ── Numerotation ──
       const pageCount = doc.getNumberOfPages();
