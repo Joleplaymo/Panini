@@ -194,12 +194,14 @@
 }
 
 /* Onglets Manquantes / Doubles : cartes par équipe façon page d'album / PDF */
+/* 4 colonnes = 1 ligne par groupe (4 équipes) */
+.list-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.list-section--full { grid-column: 1 / -1; }   /* intro : pleine largeur */
 .list-section {
   background: var(--pan-surface);
   border: 1px solid var(--pan-border);
   border-radius: var(--border-radius-md);
   overflow: hidden;
-  margin-bottom: 10px;
   box-shadow: 0 2px 12px -10px rgba(43,42,36,.4);
 }
 .list-sec-head {
@@ -802,12 +804,12 @@ function buildSectionCards(pred, chipClass, chipAction, chipTitle) {
       const local = sec.group ? (n - sec.range[0] + 1) : n;
       return `<span class="list-chip ${chipClass}" onclick="${chipAction}(${n})" title="${chipTitle}">${local}</span>`;
     }).join('');
-    html += `<div class="list-section">
+    html += `<div class="list-section${sec.group ? '' : ' list-section--full'}">
       <div class="list-sec-head"><span class="ls-flag">${sec.emoji}</span><span class="ls-name">${sec.label}</span>${grpLbl?`<span class="ls-grp">${grpLbl}</span>`:''}<span class="ls-count">${nums.length}</span></div>
       <div class="list-chips">${chips}</div>
     </div>`;
   });
-  return html;
+  return `<div class="list-grid">${html}</div>`;
 }
 
 // ── Manquantes ──
